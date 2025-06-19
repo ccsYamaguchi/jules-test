@@ -409,3 +409,60 @@ drawBoard();   // 初期ボードの描画
 updateScore(); // 初期スコアの表示 (0点)
 drawNextTetrimino(); // 「次のブロック」エリアの初期表示
 console.log("テトリスゲームが初期化されました。「ゲーム開始」ボタンを押してください。");
+
+// --- BGMコントロール ---
+const bgmAudio = document.getElementById('bgm_audio');
+const playPauseButton = document.getElementById('play_pause_button');
+const volumeSlider = document.getElementById('volume_slider');
+
+// 再生/一時停止ボタンのイベントリスナー
+playPauseButton.addEventListener('click', () => {
+    if (bgmAudio.paused) {
+        bgmAudio.play();
+    } else {
+        bgmAudio.pause();
+    }
+});
+
+// 音声再生イベントでボタンテキストを更新
+bgmAudio.addEventListener('play', () => {
+    playPauseButton.textContent = '一時停止';
+});
+
+// 音声一時停止イベントでボタンテキストを更新
+bgmAudio.addEventListener('pause', () => {
+    playPauseButton.textContent = '再生';
+});
+
+// 音量スライダーのイベントリスナー
+volumeSlider.addEventListener('input', () => {
+    bgmAudio.volume = volumeSlider.value;
+    if (bgmAudio.muted && volumeSlider.value > 0) {
+        bgmAudio.muted = false; // 音量操作時にミュート解除
+    } else if (!bgmAudio.muted && volumeSlider.value == 0) {
+        // bgmAudio.muted = true; // ユーザーが意図的に0にした場合はミュートする（任意）
+    }
+});
+
+// ページ読み込み完了後にBGM再生を開始 (autoplayとmutedにより最初は無音)
+window.addEventListener('load', () => {
+    // ユーザーインタラクション前にplay()を呼び出すとエラーになることがあるため、
+    // autoplay属性に任せるか、ユーザーが何かしらの操作をした後に再生を開始するのが一般的。
+    // ここではautoplayを信頼し、明示的なplay()呼び出しはコメントアウトしておく。
+    // bgmAudio.play().catch(error => console.log("Autoplay was prevented:", error));
+
+    // 初期音量をスライダーに反映（muted属性がついている場合も考慮）
+    if (bgmAudio.muted) {
+        // mutedの場合、実際の音量は0ではないかもしれないので、スライダーの初期値(0.5)を維持
+        // もしミュート解除時にこの音量を使いたいなら、別途保存しておくなどの処理が必要
+    } else {
+        volumeSlider.value = bgmAudio.volume;
+    }
+
+    // 初期状態でボタンのテキストを正しく設定
+    if (bgmAudio.paused) {
+        playPauseButton.textContent = '再生';
+    } else {
+        playPauseButton.textContent = '一時停止';
+    }
+});

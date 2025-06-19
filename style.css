@@ -66,3 +66,34 @@ h1 {
 #startButton:hover {
     background-color: #218838;
 }
+
+#bgm_controls {
+    position: fixed;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 10px;
+    background-color: rgba(255, 255, 255, 0.8);
+    border-radius: 5px;
+    box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+    display: flex;
+    align-items: center;
+}
+
+#bgm_controls button {
+    margin-right: 10px;
+    padding: 8px 12px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+#bgm_controls button:hover {
+    background-color: #0056b3;
+}
+
+#bgm_controls input[type="range"] {
+    width: 100px;
+}
