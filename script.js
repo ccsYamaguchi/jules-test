@@ -390,21 +390,26 @@ document.addEventListener('keydown', (event) => {
         case 'ArrowLeft': // 左矢印キー
         case 'a': // 'a' キー (左移動)
             moveLeft();
+            event.preventDefault(); // Prevent default browser action
             break;
         case 'ArrowRight': // 右矢印キー
         case 'd': // 'd' キー (右移動)
             moveRight();
+            event.preventDefault(); // Prevent default browser action
             break;
         case 'ArrowDown': // 下矢印キー
         case 's': // 's' キー (ソフトドロップ)
             moveDown();
+            event.preventDefault(); // Prevent default browser action
             break;
         case 'ArrowUp': // 上矢印キー
         case 'w': // 'w' キー (回転)
             rotateTetrimino();
+            event.preventDefault(); // Prevent default browser action
             break;
         case ' ': // スペースキー (ハードドロップ)
             hardDrop();
+            event.preventDefault(); // Prevent default browser action
             break;
     }
 });
