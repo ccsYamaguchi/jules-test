@@ -288,7 +288,13 @@ function checkCollision(x, y, shape) {
  */
 function placeTetrimino() {
     const shape = currentTetrimino.shape;
-    const colorIndex = COLORS.indexOf(currentTetrimino.color); // ボード記録用の色インデックスを取得
+    let colorIndex = COLORS.indexOf(currentTetrimino.color); // ボード記録用の色インデックスを取得
+
+    // Guard against invalid colorIndex
+    if (colorIndex === -1 || colorIndex === 0) {
+        // console.warn(`Invalid color detected: ${currentTetrimino.color}. Defaulting to color index 1.`); // Optional for debugging
+        colorIndex = 1; // Default to a visible color index
+    }
 
     shape.forEach((row, r) => {
         row.forEach((value, c) => {
@@ -384,21 +390,26 @@ document.addEventListener('keydown', (event) => {
         case 'ArrowLeft': // 左矢印キー
         case 'a': // 'a' キー (左移動)
             moveLeft();
+            event.preventDefault(); // Prevent default browser action
             break;
         case 'ArrowRight': // 右矢印キー
         case 'd': // 'd' キー (右移動)
             moveRight();
+            event.preventDefault(); // Prevent default browser action
             break;
         case 'ArrowDown': // 下矢印キー
         case 's': // 's' キー (ソフトドロップ)
             moveDown();
+            event.preventDefault(); // Prevent default browser action
             break;
         case 'ArrowUp': // 上矢印キー
         case 'w': // 'w' キー (回転)
             rotateTetrimino();
+            event.preventDefault(); // Prevent default browser action
             break;
         case ' ': // スペースキー (ハードドロップ)
             hardDrop();
+            event.preventDefault(); // Prevent default browser action
             break;
     }
 });
