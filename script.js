@@ -288,7 +288,13 @@ function checkCollision(x, y, shape) {
  */
 function placeTetrimino() {
     const shape = currentTetrimino.shape;
-    const colorIndex = COLORS.indexOf(currentTetrimino.color); // ボード記録用の色インデックスを取得
+    let colorIndex = COLORS.indexOf(currentTetrimino.color); // ボード記録用の色インデックスを取得
+
+    // Guard against invalid colorIndex
+    if (colorIndex === -1 || colorIndex === 0) {
+        // console.warn(`Invalid color detected: ${currentTetrimino.color}. Defaulting to color index 1.`); // Optional for debugging
+        colorIndex = 1; // Default to a visible color index
+    }
 
     shape.forEach((row, r) => {
         row.forEach((value, c) => {
