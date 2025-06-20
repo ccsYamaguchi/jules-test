@@ -33,7 +33,7 @@ module.exports = {
   },
   plugins: [
     new HtmlWebpackPlugin({
-      template: './dist/index.html', // ビルド時に使用するHTMLテンプレート（既にdistに移動済み）
+      template: './src/index.html', // ビルド時に使用するHTMLテンプレート（既にdistに移動済み）
       filename: 'index.html',       // 出力するHTMLファイル名
       inject: 'body',               // scriptタグをbodyの最後に挿入
     }),
