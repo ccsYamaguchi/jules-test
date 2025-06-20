@@ -17,6 +17,8 @@ export const COLORS: (string | null)[] = [
     '#3877FF'  // 7: Z (藍色)
 ];
 
+export const GHOST_COLOR = 'rgba(211, 211, 211, 0.5)';
+
 // テトリミノの形状
 export const TETROMINOS: number[][][] = [
     // I字
