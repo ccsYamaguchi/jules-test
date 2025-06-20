@@ -1,5 +1,5 @@
 import { Tetrimino, TetriminoShape } from './types';
-import { COLS, ROWS, BLOCK_SIZE, NEXT_BLOCK_SIZE, HOLD_BLOCK_SIZE, COLORS, TETROMINOS, MIN_GAME_SPEED, GAME_SPEED_DECREMENT, SCORE_MULTIPLIER_INCREMENT } from './constants';
+import { COLS, ROWS, BLOCK_SIZE, NEXT_BLOCK_SIZE, HOLD_BLOCK_SIZE, COLORS, GHOST_COLOR, TETROMINOS, MIN_GAME_SPEED, GAME_SPEED_DECREMENT, SCORE_MULTIPLIER_INCREMENT } from './constants';
 import { gameCanvas, nextCanvas, holdCanvas, scoreElement, levelDisplayElement, multiplierDisplayElement, startButton, gameCtx, nextCtx, holdCtx, bgmAudio, playPauseButton, volumeSlider } from './domElements';
 
 // ゲームの状態変数
@@ -156,6 +156,33 @@ function drawTetrimino(ctx: CanvasRenderingContext2D, tetrimino: Tetrimino | nul
         row.forEach((value, c) => {
             if (value !== 0) { // テトリミノの形状がある部分のみ描画
                 drawBlock(ctx, x + c, y + r, color, blockSize);
+            }
+        });
+    });
+}
+
+/**
+ * 指定されたコンテキストにゴーストテトリミノを描画する
+ * @param {CanvasRenderingContext2D} ctx - 描画コンテキスト
+ * @param {Tetrimino | null} tetrimino - 描画するテトリミノ
+ * @param {number} x - テトリミノのX座標 (左上の列)
+ * @param {number} y - テトリミノのY座標 (左上の行)
+ * @param {number} blockSize - 1ブロックのサイズ
+ */
+function drawGhostTetrimino(ctx: CanvasRenderingContext2D, tetrimino: Tetrimino | null, x: number, y: number, blockSize: number): void {
+    if (!tetrimino) return;
+    const shape = tetrimino.shape;
+    // ゴーストテトリミノは GHOST_COLOR を使用
+    const color = GHOST_COLOR;
+    shape.forEach((row, r) => {
+        row.forEach((value, c) => {
+            if (value !== 0) { // テトリミノの形状がある部分のみ描画
+                // drawBlock を再利用するが、色は GHOST_COLOR を強制
+                ctx.fillStyle = color;
+                ctx.fillRect((x + c) * blockSize, (y + r) * blockSize, blockSize, blockSize);
+                // ゴーストなので境界線は薄くするか、描画方法を少し変えても良いが、一旦オリジナルの drawBlock に合わせる
+                ctx.strokeStyle = '#333';
+                ctx.strokeRect((x + c) * blockSize, (y + r) * blockSize, blockSize, blockSize);
             }
         });
     });
@@ -328,6 +355,23 @@ function checkCollision(x: number, y: number, shape: TetriminoShape): boolean {
 }
 
 /**
+ * ゴーストテトリミノのY座標（最終的な落下位置）を計算する
+ * @returns {number} ゴーストテトリミノのY座標
+ */
+function calculateGhostPosition(): number {
+    if (!currentTetrimino) {
+        return currentY; // 現在のテトリミノがない場合は、現在のY座標を返す
+    }
+
+    let ghostY = currentY;
+    // 衝突するまでghostYを増やしていく
+    while (!checkCollision(currentX, ghostY + 1, currentTetrimino.shape)) {
+        ghostY++;
+    }
+    return ghostY; // 衝突する直前のY座標を返す
+}
+
+/**
  * 現在のテトリミノをボードに固定する
  */
 function placeTetrimino(): void {
@@ -422,7 +466,12 @@ function levelUp(): void {
 function drawGame(): void {
     drawBoard(); // ボードを描画
     if (gameCtx) {
-        drawTetrimino(gameCtx, currentTetrimino, currentX, currentY, BLOCK_SIZE); // 現在のテトリミノを描画
+        // ゴーストピースの描画
+        const ghostY = calculateGhostPosition();
+        drawGhostTetrimino(gameCtx, currentTetrimino, currentX, ghostY, BLOCK_SIZE);
+
+        // 現在のテトリミノを描画 (ゴーストの上に描画)
+        drawTetrimino(gameCtx, currentTetrimino, currentX, currentY, BLOCK_SIZE);
     }
 }
 
