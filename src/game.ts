@@ -1,79 +1,30 @@
-// HTML要素の取得
-const gameCanvas = document.getElementById('gameCanvas');
-const nextCanvas = document.getElementById('nextCanvas');
-const holdCanvas = document.getElementById('holdCanvas'); // 追加
-const scoreElement = document.getElementById('score');
-const levelDisplayElement = document.getElementById('levelDisplay'); // 追加
-const multiplierDisplayElement = document.getElementById('multiplierDisplay'); // 追加
-const startButton = document.getElementById('startButton');
-
-// 2Dコンテキストの取得
-const gameCtx = gameCanvas.getContext('2d');
-const nextCtx = nextCanvas.getContext('2d');
-const holdCtx = holdCanvas.getContext('2d'); // 追加
-
-// ゲームの定数
-const COLS = 10; // ボードの列数
-const ROWS = 20; // ボードの行数
-const BLOCK_SIZE = 30; // 1ブロックのサイズ (ピクセル)
-const NEXT_BLOCK_SIZE = 30; // 次のブロック表示エリアのブロックサイズ
-const HOLD_BLOCK_SIZE = 30; // 追加 (NEXT_BLOCK_SIZE と同じ値)
-
-// テトリミノの色
-const COLORS = [
-    null,        // 0: 空白セル
-    '#FF0D72', // 1: I (赤紫)
-    '#0DC2FF', // 2: L (青)
-    '#0DFF72', // 3: J (緑)
-    '#F538FF', // 4: T (紫)
-    '#FF8E0D', // 5: O (オレンジ)
-    '#FFE138', // 6: S (黄)
-    '#3877FF'  // 7: Z (藍色)
-];
-
-// テトリミノの形状
-const TETROMINOS = [
-    // I字
-    [[1, 1, 1, 1]],
-    // L字
-    [[2, 0, 0], [2, 2, 2]],
-    // J字 (L字の反対)
-    [[0, 0, 3], [3, 3, 3]],
-    // T字
-    [[0, 4, 0], [4, 4, 4]],
-    // O字 (正方形)
-    [[5, 5], [5, 5]],
-    // S字
-    [[0, 6, 6], [6, 6, 0]],
-    // Z字 (S字の反対)
-    [[7, 7, 0], [0, 7, 7]]
-];
+import { Tetrimino, TetriminoShape } from './types';
+import { COLS, ROWS, BLOCK_SIZE, NEXT_BLOCK_SIZE, HOLD_BLOCK_SIZE, COLORS, TETROMINOS, MIN_GAME_SPEED, GAME_SPEED_DECREMENT, SCORE_MULTIPLIER_INCREMENT } from './constants';
+import { gameCanvas, nextCanvas, holdCanvas, scoreElement, levelDisplayElement, multiplierDisplayElement, startButton, gameCtx, nextCtx, holdCtx, bgmAudio, playPauseButton, volumeSlider } from './domElements';
 
 // ゲームの状態変数
-let board = []; // ゲームボード (2次元配列)
-let currentTetrimino = null; // 現在操作中のテトリミノ
-let currentX = 0; // 現在のテトリミノのX座標 (左上の列)
-let currentY = 0; // 現在のテトリミノのY座標 (左上の行)
-let nextTetrimino = null; // 次に出現するテトリミノ
-let holdTetrimino = null; // 追加
-let score = 0; // 現在のスコア
-let gameInterval = null; // ゲームループのインターバルID
-let gameSpeed = 500; // テトリミノが1段落下する速度 (ミリ秒)
-const MIN_GAME_SPEED = 100; // 落下速度の最低値（これ以上速くならない）
-const GAME_SPEED_DECREMENT = 50; // レベルアップごとに減少する速度
-const SCORE_MULTIPLIER_INCREMENT = 0.5; // レベルアップごとに増加するスコア倍率
-let canHold = true; // 追加
+let board: number[][] = []; // ゲームボード (2次元配列)
+let currentTetrimino: Tetrimino | null = null; // 現在操作中のテトリミノ
+let currentX: number = 0; // 現在のテトリミノのX座標 (左上の列)
+let currentY: number = 0; // 現在のテトリミノのY座標 (左上の行)
+let nextTetrimino: Tetrimino | null = null; // 次に出現するテトリミノ
+let holdTetrimino: Tetrimino | null = null; // 追加
+let score: number = 0; // 現在のスコア
+let gameInterval: number | null = null; // ゲームループのインターバルID
+let gameSpeed: number = 500; // テトリミノが1段落下する速度 (ミリ秒)
+let canHold: boolean = true; // 追加
 
-let currentLevel = 1;
-let totalLinesCleared = 0;
-let scoreMultiplier = 1;
+let currentLevel: number = 1;
+let totalLinesCleared: number = 0;
+let scoreMultiplier: number = 1;
 
 // --- ゲームロジック関数 ---
 
 /**
  * 一時退避中のテトリミノを専用のキャンバスに描画する
  */
-function drawHoldTetrimino() {
+function drawHoldTetrimino(): void {
+    if (!holdCtx || !holdCanvas) return;
     holdCtx.clearRect(0, 0, holdCanvas.width, holdCanvas.height); // ホールド表示エリアをクリア
     if (holdTetrimino) {
         // ホールドテトリミノをholdCanvasの中央に配置する
@@ -96,7 +47,7 @@ function drawHoldTetrimino() {
 /**
  * 現在のテトリミノを一時退避する (ホールド機能)
  */
-function holdCurrentTetrimino() {
+function holdCurrentTetrimino(): void {
     if (!canHold || !currentTetrimino) return; // ホールド不可または現在のミノがない場合は何もしない
 
     if (!holdTetrimino) { // ホールドミノがない場合
@@ -130,7 +81,7 @@ function holdCurrentTetrimino() {
 /**
  * ゲームボードを初期化する
  */
-function initBoard() {
+function initBoard(): void {
     for (let r = 0; r < ROWS; r++) {
         board[r] = [];
         for (let c = 0; c < COLS; c++) {
@@ -141,14 +92,19 @@ function initBoard() {
 
 /**
  * ランダムなテトリミノとその色を返す
- * @returns {{shape: number[][], color: string}} テトリミノの形状と色のオブジェクト
+ * @returns {Tetrimino} テトリミノの形状と色のオブジェクト
  */
-function getRandomTetrimino() {
+function getRandomTetrimino(): Tetrimino {
     const index = Math.floor(Math.random() * TETROMINOS.length);
     const shape = TETROMINOS[index];
-    // 単純化のため、テトリミノの色はCOLORS配列のインデックス+1に基づいています
-    // TETROMINOSとCOLORSが直接対応していない場合は、より直接的なマッピングが必要になることがあります
-    return { shape: shape, color: COLORS[index + 1] };
+    const color = COLORS[index + 1];
+    if (color === null) {
+        // Fallback color if COLORS[index + 1] is null, though this case should ideally not happen
+        // if TETROMINOS and COLORS are correctly aligned and COLORS[0] is the only null.
+        console.warn("getRandomTetrimino: Resolved to a null color, defaulting to a fallback.");
+        return { shape: shape, color: '#FFFFFF' }; // Default to white or some error color
+    }
+    return { shape: shape, color: color };
 }
 
 /**
@@ -159,7 +115,7 @@ function getRandomTetrimino() {
  * @param {string} color - ブロックの色
  * @param {number} blockSize - 1ブロックのサイズ
  */
-function drawBlock(ctx, x, y, color, blockSize) {
+function drawBlock(ctx: CanvasRenderingContext2D, x: number, y: number, color: string, blockSize: number): void {
     ctx.fillStyle = color;
     ctx.fillRect(x * blockSize, y * blockSize, blockSize, blockSize);
     ctx.strokeStyle = '#333'; // ブロックの境界線
@@ -169,12 +125,16 @@ function drawBlock(ctx, x, y, color, blockSize) {
 /**
  * ゲームボード全体を描画する
  */
-function drawBoard() {
+function drawBoard(): void {
+    if (!gameCtx || !gameCanvas) return;
     gameCtx.clearRect(0, 0, gameCanvas.width, gameCanvas.height); // キャンバスをクリア
     for (let r = 0; r < ROWS; r++) {
         for (let c = 0; c < COLS; c++) {
             if (board[r][c] !== 0) { // 空でないセルのみ描画
-                drawBlock(gameCtx, c, r, COLORS[board[r][c]], BLOCK_SIZE);
+                const color = COLORS[board[r][c]];
+                if (color) { // colorがnullでないことを確認
+                    drawBlock(gameCtx, c, r, color, BLOCK_SIZE);
+                }
             }
         }
     }
@@ -183,12 +143,12 @@ function drawBoard() {
 /**
  * 指定されたコンテキストにテトリミノを描画する
  * @param {CanvasRenderingContext2D} ctx - 描画コンテキスト
- * @param {{shape: number[][], color: string}} tetrimino - 描画するテトリミノ
+ * @param {Tetrimino | null} tetrimino - 描画するテトリミノ
  * @param {number} x - テトリミノのX座標 (左上の列)
  * @param {number} y - テトリミノのY座標 (左上の行)
  * @param {number} blockSize - 1ブロックのサイズ
  */
-function drawTetrimino(ctx, tetrimino, x, y, blockSize) {
+function drawTetrimino(ctx: CanvasRenderingContext2D, tetrimino: Tetrimino | null, x: number, y: number, blockSize: number): void {
     if (!tetrimino) return;
     const shape = tetrimino.shape;
     const color = tetrimino.color;
@@ -204,7 +164,8 @@ function drawTetrimino(ctx, tetrimino, x, y, blockSize) {
 /**
  * 次に出現するテトリミノを専用のキャンバスに描画する
  */
-function drawNextTetrimino() {
+function drawNextTetrimino(): void {
+    if (!nextCtx || !nextCanvas) return;
     nextCtx.clearRect(0, 0, nextCanvas.width, nextCanvas.height); // 次のブロック表示エリアをクリア
     if (nextTetrimino) {
         // 次のテトリミノをnextCanvasの中央に配置する
@@ -229,9 +190,10 @@ function drawNextTetrimino() {
 /**
  * スコア、レベル、倍率表示を更新する
  */
-function updateDisplay() {
-    scoreElement.textContent = score;
-    levelDisplayElement.textContent = currentLevel;
+function updateDisplay(): void {
+    if (!scoreElement || !levelDisplayElement || !multiplierDisplayElement) return;
+    scoreElement.textContent = score.toString();
+    levelDisplayElement.textContent = currentLevel.toString();
     multiplierDisplayElement.textContent = `${scoreMultiplier}x`;
 }
 
@@ -239,11 +201,15 @@ function updateDisplay() {
  * 新しいテトリミノを生成し、初期位置に配置する
  * ゲームオーバーのチェックもここで行う
  */
-function spawnTetrimino() {
+function spawnTetrimino(): void {
     canHold = true; // 新しいミノの出現時にホールド可能にする
 
     currentTetrimino = nextTetrimino ? nextTetrimino : getRandomTetrimino();
     nextTetrimino = getRandomTetrimino();
+    if (!currentTetrimino) { // currentTetriminoがnullの場合のフォールバック
+        gameOver();
+        return;
+    }
     currentX = Math.floor(COLS / 2) - Math.floor(currentTetrimino.shape[0].length / 2);
     currentY = 0;
 
@@ -258,7 +224,8 @@ function spawnTetrimino() {
  * テトリミノを1段下に移動させる
  * 衝突する場合はテトリミノを固定し、新しいテトリミノを生成する
  */
-function moveDown() {
+function moveDown(): void {
+    if (!currentTetrimino) return; // currentTetrimino が null の場合は何もしない
     if (!checkCollision(currentX, currentY + 1, currentTetrimino.shape)) {
         currentY++; // 衝突しなければ1段下へ
     } else {
@@ -273,7 +240,8 @@ function moveDown() {
 /**
  * テトリミノを左に1列移動させる
  */
-function moveLeft() {
+function moveLeft(): void {
+    if (!currentTetrimino) return;
     if (!checkCollision(currentX - 1, currentY, currentTetrimino.shape)) {
         currentX--; // 衝突しなければ1列左へ
     }
@@ -283,7 +251,8 @@ function moveLeft() {
 /**
  * テトリミノを右に1列移動させる
  */
-function moveRight() {
+function moveRight(): void {
+    if (!currentTetrimino) return;
     if (!checkCollision(currentX + 1, currentY, currentTetrimino.shape)) {
         currentX++; // 衝突しなければ1列右へ
     }
@@ -293,11 +262,12 @@ function moveRight() {
 /**
  * テトリミノを時計回りに90度回転させる
  */
-function rotateTetrimino() {
+function rotateTetrimino(): void {
+    if (!currentTetrimino) return;
     const originalShape = currentTetrimino.shape;
     const N = originalShape.length; // 元の形状の行数
     const M = originalShape[0].length; // 元の形状の列数
-    let newShape = [];
+    let newShape: TetriminoShape = [];
 
     // 回転処理 (行列の転置と逆順)
     for (let i = 0; i < M; i++) {
@@ -317,7 +287,8 @@ function rotateTetrimino() {
 /**
  * ハードドロップ機能: テトリミノを一番下まで落下させて固定する
  */
-function hardDrop() {
+function hardDrop(): void {
+    if (!currentTetrimino) return;
     while (!checkCollision(currentX, currentY + 1, currentTetrimino.shape)) {
         currentY++; // 衝突するまで下に移動
     }
@@ -332,10 +303,10 @@ function hardDrop() {
  * 指定された位置と形状でテトリミノが衝突するかどうかをチェックする
  * @param {number} x - チェックするX座標
  * @param {number} y - チェックするY座標
- * @param {number[][]} shape - チェックするテトリミノの形状
+ * @param {TetriminoShape} shape - チェックするテトリミノの形状
  * @returns {boolean} 衝突する場合はtrue、しない場合はfalse
  */
-function checkCollision(x, y, shape) {
+function checkCollision(x: number, y: number, shape: TetriminoShape): boolean {
     for (let r = 0; r < shape.length; r++) {
         for (let c = 0; c < shape[r].length; c++) {
             if (shape[r][c] !== 0) { // テトリミノのブロックがある部分のみチェック
@@ -359,7 +330,8 @@ function checkCollision(x, y, shape) {
 /**
  * 現在のテトリミノをボードに固定する
  */
-function placeTetrimino() {
+function placeTetrimino(): void {
+    if (!currentTetrimino) return;
     const shape = currentTetrimino.shape;
     let colorIndex = COLORS.indexOf(currentTetrimino.color); // ボード記録用の色インデックスを取得
 
@@ -384,7 +356,7 @@ function placeTetrimino() {
 /**
  * そろったラインを消去し、スコアを加算する
  */
-function clearLines() {
+function clearLines(): void {
     let linesClearedThisTurn = 0; // このターンで消去したライン数
     for (let r = ROWS - 1; r >= 0; r--) {
         if (board[r].every(cell => cell !== 0)) {
@@ -421,7 +393,7 @@ function clearLines() {
 /**
  * レベルアップ処理
  */
-function levelUp() {
+function levelUp(): void {
     currentLevel++;
     scoreMultiplier += SCORE_MULTIPLIER_INCREMENT;
 
@@ -447,22 +419,24 @@ function levelUp() {
 /**
  * ゲーム画面全体（ボードと現在のテトリミノ）を描画する
  */
-function drawGame() {
+function drawGame(): void {
     drawBoard(); // ボードを描画
-    drawTetrimino(gameCtx, currentTetrimino, currentX, currentY, BLOCK_SIZE); // 現在のテトリミノを描画
+    if (gameCtx) {
+        drawTetrimino(gameCtx, currentTetrimino, currentX, currentY, BLOCK_SIZE); // 現在のテトリミノを描画
+    }
 }
 
 /**
  * ゲームループのメイン処理 (一定間隔で実行される)
  */
-function gameLoop() {
+function gameLoop(): void {
     moveDown(); // テトリミノを1段下に移動
 }
 
 /**
  * ゲームを開始する
  */
-function startGame() {
+function startGame(): void {
     if (gameInterval) {
         clearInterval(gameInterval);
     }
@@ -489,21 +463,28 @@ function startGame() {
     drawNextTetrimino();
 
     gameInterval = setInterval(gameLoop, gameSpeed);
-    startButton.textContent = "リスタート";
+    if (startButton) {
+        startButton.textContent = "リスタート";
+    }
 }
 
 /**
  * ゲームオーバー処理
  */
-function gameOver() {
-    clearInterval(gameInterval);
+function gameOver(): void {
+    if (gameInterval) {
+        clearInterval(gameInterval);
+    }
     gameInterval = null;
-    startButton.textContent = "ゲーム開始"; // ボタンのテキストを「ゲーム開始」に戻す
+    if (startButton) {
+        startButton.textContent = "ゲーム開始"; // ボタンのテキストを「ゲーム開始」に戻す
+    }
+    if (!gameCtx || !gameCanvas) return;
 
     // スコアに応じたゲームオーバー演出
     let message = "ゲームオーバー!";
     let detailMessage = `スコア: ${score}`;
-    let animationDuration = 2000; // アニメーションの表示時間 (ミリ秒)
+    // let animationDuration = 2000; // アニメーションの表示時間 (ミリ秒) - 未使用変数のためコメントアウト
 
     // 元のキャンバスの状態を保存
     const originalFillStyle = gameCtx.fillStyle;
@@ -558,11 +539,13 @@ function gameOver() {
 }
 
 // --- イベントリスナー ---
-startButton.addEventListener('click', startGame); // スタートボタンのクリックイベント
+if (startButton) {
+    startButton.addEventListener('click', startGame); // スタートボタンのクリックイベント
+}
 
-document.addEventListener('keydown', (event) => {
+document.addEventListener('keydown', (event: KeyboardEvent) => {
     if (!gameInterval && event.key !== 'Enter' && event.key !== ' ') {
-        if (startButton.textContent === "ゲーム開始" && (event.key === 'Enter' || event.key === ' ')) {
+        if (startButton && startButton.textContent === "ゲーム開始" && (event.key === 'Enter' || event.key === ' ')) {
             startGame();
         }
         return;
@@ -591,14 +574,14 @@ document.addEventListener('keydown', (event) => {
             rotateTetrimino();
             event.preventDefault();
             break;
-        case ' ':
+        case ' ': // Space key
             if (gameInterval) {
                 hardDrop();
                 event.preventDefault();
             }
             break;
         case 'c':
-        case 'Shift':
+        case 'Shift': // Shift key
             if (gameInterval) {
                 holdCurrentTetrimino();
                 event.preventDefault();
@@ -617,58 +600,70 @@ drawHoldTetrimino(); // 追加
 console.log("テトリスゲームが初期化されました。「ゲーム開始」ボタンを押してください。");
 
 // --- BGMコントロール ---
-const bgmAudio = document.getElementById('bgm_audio');
-const playPauseButton = document.getElementById('play_pause_button');
-const volumeSlider = document.getElementById('volume_slider');
 
 // 再生/一時停止ボタンのイベントリスナー
-playPauseButton.addEventListener('click', () => {
-    if (bgmAudio.paused) {
-        bgmAudio.play();
-    } else {
-        bgmAudio.pause();
-    }
-});
+if (playPauseButton && bgmAudio) {
+    playPauseButton.addEventListener('click', () => {
+        if (bgmAudio.paused) {
+            bgmAudio.play();
+        } else {
+            bgmAudio.pause();
+        }
+    });
+}
 
 // 音声再生イベントでボタンテキストを更新
-bgmAudio.addEventListener('play', () => {
-    playPauseButton.textContent = '一時停止';
-});
+if (bgmAudio && playPauseButton) {
+    bgmAudio.addEventListener('play', () => {
+        playPauseButton.textContent = '一時停止';
+    });
+}
 
 // 音声一時停止イベントでボタンテキストを更新
-bgmAudio.addEventListener('pause', () => {
-    playPauseButton.textContent = '再生';
-});
+if (bgmAudio && playPauseButton) {
+    bgmAudio.addEventListener('pause', () => {
+        playPauseButton.textContent = '再生';
+    });
+}
 
 // 音量スライダーのイベントリスナー
-volumeSlider.addEventListener('input', () => {
-    bgmAudio.volume = volumeSlider.value;
-    if (bgmAudio.muted && volumeSlider.value > 0) {
-        bgmAudio.muted = false; // 音量操作時にミュート解除
-    } else if (!bgmAudio.muted && volumeSlider.value == 0) {
-        // bgmAudio.muted = true; // ユーザーが意図的に0にした場合はミュートする（任意）
-    }
-});
+if (volumeSlider && bgmAudio) {
+    volumeSlider.addEventListener('input', () => {
+        if (bgmAudio && volumeSlider) { // Add null checks for bgmAudio and volumeSlider
+            bgmAudio.volume = parseFloat(volumeSlider.value);
+            if (bgmAudio.muted && bgmAudio.volume > 0) {
+                bgmAudio.muted = false; // 音量操作時にミュート解除
+            } else if (!bgmAudio.muted && bgmAudio.volume == 0) {
+                // bgmAudio.muted = true; // ユーザーが意図的に0にした場合はミュートする（任意）
+            }
+        }
+    });
+}
 
 // ページ読み込み完了後にBGM再生を開始 (autoplayとmutedにより最初は無音)
 window.addEventListener('load', () => {
     // ユーザーインタラクション前にplay()を呼び出すとエラーになることがあるため、
     // autoplay属性に任せるか、ユーザーが何かしらの操作をした後に再生を開始するのが一般的。
     // ここではautoplayを信頼し、明示的なplay()呼び出しはコメントアウトしておく。
-    // bgmAudio.play().catch(error => console.log("Autoplay was prevented:", error));
+    // if (bgmAudio) bgmAudio.play().catch(error => console.log("Autoplay was prevented:", error));
+
 
     // 初期音量をスライダーに反映（muted属性がついている場合も考慮）
-    if (bgmAudio.muted) {
-        // mutedの場合、実際の音量は0ではないかもしれないので、スライダーの初期値(0.5)を維持
-        // もしミュート解除時にこの音量を使いたいなら、別途保存しておくなどの処理が必要
-    } else {
-        volumeSlider.value = bgmAudio.volume;
+    if (bgmAudio && volumeSlider) {
+        if (bgmAudio.muted) {
+            // mutedの場合、実際の音量は0ではないかもしれないので、スライダーの初期値(0.5)を維持
+            // もしミュート解除時にこの音量を使いたいなら、別途保存しておくなどの処理が必要
+        } else {
+            volumeSlider.value = bgmAudio.volume.toString();
+        }
     }
 
     // 初期状態でボタンのテキストを正しく設定
-    if (bgmAudio.paused) {
-        playPauseButton.textContent = '再生';
-    } else {
-        playPauseButton.textContent = '一時停止';
+    if (bgmAudio && playPauseButton) {
+        if (bgmAudio.paused) {
+            playPauseButton.textContent = '再生';
+        } else {
+            playPauseButton.textContent = '一時停止';
+        }
     }
 });
