@@ -3,6 +3,8 @@ const gameCanvas = document.getElementById('gameCanvas');
 const nextCanvas = document.getElementById('nextCanvas');
 const holdCanvas = document.getElementById('holdCanvas'); // 追加
 const scoreElement = document.getElementById('score');
+const levelDisplayElement = document.getElementById('levelDisplay'); // 追加
+const multiplierDisplayElement = document.getElementById('multiplierDisplay'); // 追加
 const startButton = document.getElementById('startButton');
 
 // 2Dコンテキストの取得
@@ -57,7 +59,14 @@ let holdTetrimino = null; // 追加
 let score = 0; // 現在のスコア
 let gameInterval = null; // ゲームループのインターバルID
 let gameSpeed = 500; // テトリミノが1段落下する速度 (ミリ秒)
+const MIN_GAME_SPEED = 100; // 落下速度の最低値（これ以上速くならない）
+const GAME_SPEED_DECREMENT = 50; // レベルアップごとに減少する速度
+const SCORE_MULTIPLIER_INCREMENT = 0.5; // レベルアップごとに増加するスコア倍率
 let canHold = true; // 追加
+
+let currentLevel = 1;
+let totalLinesCleared = 0;
+let scoreMultiplier = 1;
 
 // --- ゲームロジック関数 ---
 
@@ -218,10 +227,12 @@ function drawNextTetrimino() {
 }
 
 /**
- * スコア表示を更新する
+ * スコア、レベル、倍率表示を更新する
  */
-function updateScore() {
+function updateDisplay() {
     scoreElement.textContent = score;
+    levelDisplayElement.textContent = currentLevel;
+    multiplierDisplayElement.textContent = `${scoreMultiplier}x`;
 }
 
 /**
@@ -374,23 +385,63 @@ function placeTetrimino() {
  * そろったラインを消去し、スコアを加算する
  */
 function clearLines() {
-    let linesCleared = 0;
+    let linesClearedThisTurn = 0; // このターンで消去したライン数
     for (let r = ROWS - 1; r >= 0; r--) {
-        if (board[r].every(cell => cell !== 0)) { // 行内の全てのセルが0でない (埋まっている)
-            linesCleared++;
-            board.splice(r, 1); // その行を削除
-            board.unshift(Array(COLS).fill(0)); // 新しい空の行を一番上に追加
-            r++; // 行がシフトしたので、同じ行インデックスを再チェック
+        if (board[r].every(cell => cell !== 0)) {
+            linesClearedThisTurn++;
+            board.splice(r, 1);
+            board.unshift(Array(COLS).fill(0));
+            r++;
         }
     }
-    if (linesCleared > 0) {
-        // 消去したライン数に応じてスコアを加算 (例)
-        if (linesCleared === 1) score += 100;      // 1ライン
-        else if (linesCleared === 2) score += 300; // 2ライン
-        else if (linesCleared === 3) score += 500; // 3ライン
-        else if (linesCleared >= 4) score += 800; // 4ライン (テトリス)
-        updateScore(); // スコア表示を更新
+    if (linesClearedThisTurn > 0) {
+        // 消去したライン数を総ライン数に加算
+        totalLinesCleared += linesClearedThisTurn;
+
+        // スコア計算に倍率を適用
+        if (linesClearedThisTurn === 1) score += 100 * scoreMultiplier;
+        else if (linesClearedThisTurn === 2) score += 300 * scoreMultiplier;
+        else if (linesClearedThisTurn === 3) score += 500 * scoreMultiplier;
+        else if (linesClearedThisTurn >= 4) score += 800 * scoreMultiplier;
+
+            updateDisplay(); // 表示更新
+
+        // 10ラインごとのレベルアップ処理呼び出し (levelUp() は後で定義)
+        // if (Math.floor(totalLinesCleared / 10) > currentLevel -1 ) {
+        //     levelUp();
+        // }
+        // 代わりに、レベルアップの条件を満たしたかどうかのチェックだけ行い、
+        // 次のステップで levelUp 関数を実装した際にコメントを解除します。
+        if (totalLinesCleared >= currentLevel * 10) {
+            levelUp();
+        }
     }
+}
+
+/**
+ * レベルアップ処理
+ */
+function levelUp() {
+    currentLevel++;
+    scoreMultiplier += SCORE_MULTIPLIER_INCREMENT;
+
+    // ゲーム速度を上げる（gameSpeed を減らす）
+    if (gameSpeed > MIN_GAME_SPEED) {
+        gameSpeed -= GAME_SPEED_DECREMENT;
+        if (gameSpeed < MIN_GAME_SPEED) {
+            gameSpeed = MIN_GAME_SPEED;
+        }
+    }
+
+    // ゲームループを新しい速度で再開
+    if (gameInterval) { // gameInterval が null でないことを確認
+        clearInterval(gameInterval);
+        gameInterval = setInterval(gameLoop, gameSpeed);
+    }
+
+    updateDisplay(); // レベルアップ後にも表示を更新
+
+    console.log(`レベルアップ！ 現在のレベル: ${currentLevel}, 倍率: ${scoreMultiplier}, 速度: ${gameSpeed}`); // 動作確認用ログ
 }
 
 /**
@@ -417,7 +468,16 @@ function startGame() {
     }
     initBoard();
     score = 0;
-    updateScore();
+    // updateScore(); // 旧関数呼び出しを削除またはコメントアウト
+
+    // 追加：レベル関連変数の初期化
+    currentLevel = 1;
+    totalLinesCleared = 0;
+    scoreMultiplier = 1;
+    // gameSpeed も初期値に戻す（レベルアップで変更されるため）
+    gameSpeed = 500; // 初期速度
+
+    updateDisplay(); // 新しい表示更新関数を呼び出し
 
     holdTetrimino = null;
     canHold = true;
@@ -436,16 +496,65 @@ function startGame() {
  * ゲームオーバー処理
  */
 function gameOver() {
-    clearInterval(gameInterval); // ゲームループを停止
+    clearInterval(gameInterval);
     gameInterval = null;
-    // ゲームオーバーメッセージをキャンバスに表示
-    gameCtx.fillStyle = 'rgba(0, 0, 0, 0.75)';
-    gameCtx.fillRect(0, gameCanvas.height / 2 - 30, gameCanvas.width, 60);
-    gameCtx.font = '24px Arial';
-    gameCtx.fillStyle = 'white';
-    gameCtx.textAlign = 'center';
-    gameCtx.fillText('ゲームオーバー!', gameCanvas.width / 2, gameCanvas.height / 2);
     startButton.textContent = "ゲーム開始"; // ボタンのテキストを「ゲーム開始」に戻す
+
+    // スコアに応じたゲームオーバー演出
+    let message = "ゲームオーバー!";
+    let detailMessage = `スコア: ${score}`;
+    let animationDuration = 2000; // アニメーションの表示時間 (ミリ秒)
+
+    // 元のキャンバスの状態を保存
+    const originalFillStyle = gameCtx.fillStyle;
+    const originalFont = gameCtx.font;
+    const originalTextAlign = gameCtx.textAlign;
+
+    gameCtx.textAlign = 'center';
+
+    if (score >= 10000) {
+        message = "素晴らしい！ハイスコア！";
+        detailMessage = `驚異のスコア: ${score}点！`;
+        gameCtx.fillStyle = 'rgba(255, 215, 0, 0.75)'; // ゴールドっぽい背景
+        gameCtx.fillRect(0, 0, gameCanvas.width, gameCanvas.height);
+        gameCtx.font = '30px "MS Gothic", sans-serif';
+        gameCtx.fillStyle = 'darkred';
+    } else if (score >= 5000) {
+        message = "おめでとう！高得点！";
+        detailMessage = `あなたのスコア: ${score}点`;
+        gameCtx.fillStyle = 'rgba(192, 192, 192, 0.75)'; // シルバーっぽい背景
+        gameCtx.fillRect(0, 0, gameCanvas.width, gameCanvas.height);
+        gameCtx.font = '28px "MS Gothic", sans-serif';
+        gameCtx.fillStyle = 'navy';
+    } else {
+        // 通常のゲームオーバー
+        gameCtx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+        gameCtx.fillRect(0, gameCanvas.height / 2 - 40, gameCanvas.width, 80); // メッセージ表示領域
+        gameCtx.font = '24px Arial';
+        gameCtx.fillStyle = 'white';
+    }
+
+    // メインメッセージと詳細メッセージを表示
+    gameCtx.fillText(message, gameCanvas.width / 2, gameCanvas.height / 2 - 10);
+    if (score < 5000) { // 通常時はスコアを少し下に表示
+      gameCtx.font = '20px Arial'; // スコア表示は少し小さく
+      gameCtx.fillText(detailMessage, gameCanvas.width / 2, gameCanvas.height / 2 + 20);
+    } else { // 高得点時はメッセージのスタイルを継続
+      gameCtx.fillText(detailMessage, gameCanvas.width / 2, gameCanvas.height / 2 + 30);
+    }
+
+
+    // 一定時間後にデフォルトのスタイルに戻し、画面をクリアして再描画を促す
+    // (ただし、ゲームはリスタートされるまで操作不能)
+    // 高得点時の背景は残したままにするため、ここではクリアしない。
+    // リスタート時にinitBoard()とdrawBoard()でクリアされる。
+
+    // 元のスタイルに戻す (次に何か描画する時のため)
+    gameCtx.fillStyle = originalFillStyle;
+    gameCtx.font = originalFont;
+    gameCtx.textAlign = originalTextAlign;
+
+    console.log(`ゲームオーバー。スコア: ${score}`); // ログ表示
 }
 
 // --- イベントリスナー ---
@@ -500,8 +609,9 @@ document.addEventListener('keydown', (event) => {
 
 // --- 初期化処理 ---
 initBoard();
-drawBoard();
-updateScore();
+// drawBoard(); // startGame 内で呼ばれるので不要な場合がある
+// updateScore(); // 旧関数
+updateDisplay(); // 初期表示のため
 drawNextTetrimino();
 drawHoldTetrimino(); // 追加
 console.log("テトリスゲームが初期化されました。「ゲーム開始」ボタンを押してください。");
