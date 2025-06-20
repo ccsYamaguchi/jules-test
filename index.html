@@ -11,8 +11,11 @@
     <div class="container">
         <canvas id="gameCanvas" width="300" height="600"></canvas>
         <div class="info">
-            <h2>スコア</h2>
-            <p id="score">0</p>
+            <div class="game-info">
+                <p>スコア: <span id="score">0</span></p>
+                <p>レベル: <span id="levelDisplay">1</span></p> <!-- 追加 -->
+                <p>倍率: <span id="multiplierDisplay">1x</span></p> <!-- 追加 -->
+            </div>
             <h2>次のブロック</h2>
             <canvas id="nextCanvas" width="120" height="120"></canvas>
             <h2>ホールド</h2>
